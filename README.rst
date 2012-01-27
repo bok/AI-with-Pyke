@@ -46,6 +46,10 @@ ABOUT PYKE
 
 Official site : http://pyke.sourceforge.net
 
+LICENSE
+-------
+
+This project is released under the DWTFYW Public License.
 
 Installation
 ============
