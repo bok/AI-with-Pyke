@@ -7,6 +7,8 @@ AUTHORS
 - Florent Latombe         <florent@bokbox.com>
 - Antoine Pierlot-Garcin  <antoine@bokbox.com>
 
+We're both students at INP-ENSEEIHT, Toulouse, France.
+
 PURPOSE
 -------
 

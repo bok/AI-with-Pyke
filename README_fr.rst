@@ -6,6 +6,8 @@ AUTEURS
 - Florent Latombe         <florent@bokbox.com>
 - Antoine Pierlot-Garcin  <antoine@bokbox.com>
 
+Nous sommes étudiants à l'INP-ENSEEIHT, Toulouse, France.
+
 EXPLICATIONS
 ------------
 
