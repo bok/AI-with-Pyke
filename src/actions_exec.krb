@@ -1,0 +1,312 @@
+#####################################################################
+# This program is free software. It comes without any warranty, to  #
+# the extent permitted by applicable law. You can redistribute it   #
+# and/or modify it under the terms of the Do What The Fuck You Want #
+# To Public License, Version 2, as published by Sam Hocevar. See    #
+# http://sam.zoy.org/wtfpl/COPYING for more details.                #
+#####################################################################
+
+
+#############################################################################
+#                                ACTIONS                                    #
+#############################################################################
+
+#----------------------------
+# MOVE from pos $x to pos $y
+#----------------------------
+action_moveto
+    use action('move', $self, ($x, $y), ($cond_pos, $cond_neg), $dele, $add) taking (execute, universe)
+    when
+
+        universe.location($x)
+        universe.location($y)
+
+        check $x != $y
+
+        $cond_pos = (('location', $self, $x),)
+        $cond_neg = None
+        $dele     = (('location', $self, $x),)
+        $add      = (('location', $self, $y),)
+
+    with
+        if execute:
+            print '-+- %s moves from %s to %s' % ($self, $x, $y)
+            universe.move($self, $y)
+
+#-----------------------------
+# TAKE $object at $loc_object
+#-----------------------------
+action_take
+    use action('take', $self, ($object, $loc_obj), ($cond_pos, $cond_neg), $dele, $add) taking (execute, universe)
+    when
+
+        universe.location($loc_obj)
+        universe.object($object)
+
+        $cond_pos = (('location', $self, $loc_obj),
+                     ('location', $object, $loc_obj),
+                     ('free', $self, True),
+                    )
+        $cond_neg = None
+        $dele     = (('location', $object, $loc_obj),
+                     ('free',  $self, True),
+                    )
+        $add =  (('location', $object, $self),
+                     ('free', $self, False),
+                    )
+
+    with
+        if execute:
+            print '-+- %s takes %s at %s' % ($self, $object, $loc_obj)
+            universe.take($self, $object)
+
+#-------------------------
+# PUT $object at $loc_obj
+#-------------------------
+action_put
+    use action('put', $self, ($object, $loc_obj), ($cond_pos, $cond_neg), $dele, $add) taking (execute, universe)
+    when
+
+        universe.location($loc_obj)
+        universe.object($object)
+
+        $cond_pos = (('location', $self, $loc_obj),
+                     ('location', $object, $self),
+                     ('free', $self, False),
+                    )
+        $cond_neg = None
+        $dele     = (('location', $object, $self),
+                     ('free',  $self, False),
+                    )
+        $add =  (('location', $object, $loc_obj),
+                     ('free', $self, True),
+                    )
+
+    with
+        if execute:
+            print '-+- %s puts %s at %s' % ($self, $object, $loc_obj)
+            universe.put($self, $object, $loc_obj)
+
+#------------------------------
+# GIVE $object to agent $other
+#------------------------------
+action_give
+    use action('give', $self, ($object, $other), ($cond_pos, $cond_neg), $dele, $add) taking (execute, universe)
+    when
+
+        universe.object($object)
+        universe.agent($other)
+        universe.location($x)
+        universe.location($y)
+
+        check $x == $y
+
+        $cond_pos = (('free', $other, True),
+                     ('free', $self, False),
+                     ('location', $self, $x),
+                     ('location', $other, $y),
+                     ('location', $object, $self),
+                    )
+        $cond_neg = None
+
+        $dele = (('free', $other, True),
+                    ('free', $self, False),
+                    ('location', $object, $self),
+                   )
+
+        $add = (('free', $other, False),
+                    ('free', $self, True),
+                    ('location', $object, $other), 
+                   )
+
+    with
+        if execute:
+            print '-+- %s gives %s to agent %s' % ($self, $object, $other)
+            universe.give($self, $other, $object)
+
+#------------------------------------------------
+# ORDER an action of type $atype to agent $other
+#------------------------------------------------
+action_order
+    use action('order', $self, ($other, $atype, $args), ($cond_pos, $cond_neg), $dele, $add) taking (execute, universe)
+    when
+        universe.agent($other)
+        actions.type($atype)
+
+        check $atype != 'order'
+        check $self != $other
+        universe.can_do($other, $atype)
+
+        action($atype, $other, $args, ($o_cond_pos, $o_cond_neg), $_del, $_add)
+            $$(False, universe)
+
+        python from utils import replace_in, union
+        python
+            new_cond_pos = replace_in($o_cond_pos, $other, $self)
+            new_cond_neg = replace_in($o_cond_pos, $other, $self)
+
+        $cond_pos = None
+        $cond_neg = None
+        $dele     = None
+        $add      = None
+
+    with
+        if execute:
+            print '-+- %s orders %s to %s (%s)' % ($self, $other, $atype, $args)
+            universe.order($self, $other, $add)
+
+#-----------------------------------
+# PLACE $object in $box at $loc_box
+#-----------------------------------
+action_place_in_box
+    use action('place_in_box', $self, ($object, $box, $loc_box), ($cond_pos, $cond_neg), $dele, $add) taking (execute, universe)
+    when
+
+        universe.object($box)
+        universe.box($box)
+        universe.location($loc_box)
+        universe.object($object)
+        
+
+        $cond_pos = (('location', $self, $loc_box),
+                     ('location', $object, $self),
+                     ('location', $box, $loc_box),
+                     ('free', $self, False),
+                     ('full', $box, False),
+                    )
+        $cond_neg = None
+        $dele     = (('location', $object, $self),
+                     ('free',  $self, False),
+                    )
+        $add =  (('location', $object, $box),
+                     ('free', $self, True),
+                    )
+
+    with
+        if execute:
+            print '-+- %s puts %s in box %s at %s' % ($self, $object, $box, $loc_box)
+            universe.place_in_box($self, $object, $box)
+
+#-------------------------------------
+# FETCH $object from $box at $loc_box
+#-------------------------------------
+action_fetch_from_box
+    use action('fetch_from_box', $self, ($object, $box, $loc_box), ($cond_pos, $cond_neg), $dele, $add) taking (execute, universe)
+    when
+
+        universe.location($loc_box)
+        universe.object($object)
+        universe.object($box)
+        universe.box($box)
+
+        $cond_pos = (('location', $self, $loc_box),
+                     ('location', $object, $box),
+                     ('free', $self, True),
+                    )
+        $cond_neg = None
+        $dele     = (('location', $object, $box),
+                     ('free',  $self, True),
+                    )
+        $add =  (('location', $object, $self),
+                     ('free', $self, False),
+                    )
+
+    with
+        if execute:
+            print '-+- %s takes %s from box %s at %s' % ($self, $object, $box, $loc_obj)
+            universe.fetch_from_box($self, $object, $box)
+
+#-------------------------------------
+# ASKIF ask $other if they know $fact
+#-------------------------------------
+action_ask_if
+    use action('ask_if', $self, ($other, ($situation, $target)), ($cond_pos, $cond_neg), $dele, $add) taking (execute, universe)
+    when
+
+        universe.agent($other)
+        check $other != $self
+
+        facts.fact($situation, $target)
+        check $target != $self
+
+        $cond_pos = None
+        $cond_neg = None
+        $dele     = None
+        $add      = None
+
+    with
+        if execute:
+            print '-+- %s asks %s if it knows about %s' % ($self, $other, ($situation, $target))
+            universe.ask_if($self, $other, $situation, $target)
+
+#--------------------------------------------------------------------
+# INFORMIF inform $other wether I know $fact = ($situation, $target)
+#--------------------------------------------------------------------
+action_inform_if_positive
+    use action('inform_if', $self, ($other, ($situation, $target)), ($cond_pos, $cond_neg), $dele, $add) taking (execute, universe)
+    when
+
+        universe.agent($other)
+        check $other != $self
+
+        facts.fact($situation, $target)
+        check $target != $other
+
+        $cond_pos = None
+        $cond_neg = None
+        $dele     = None
+        $add      = None
+
+    with
+        if execute:
+            universe.inform_if($self, $other, $situation, $target)
+
+#-------------------------------------
+# ASKREF ask $other the value of $fact
+#-------------------------------------
+action_ask_ref
+    use action('ask_ref', $self, ($other, $fact), ($cond_pos, $cond_neg), $dele, $add) taking (execute, universe)
+    when
+
+        universe.agent($other)
+        check $other != $self
+
+        facts.value($situation, $target, $value)
+        check $target != $self
+
+        $fact = ($situation, $target)
+
+        $cond_pos = None
+        $cond_neg = None
+        $dele     = None
+        $add      = None
+
+    with
+        if execute:
+            print '-+- %s asks %s the value of %s' % ($self, $other, ($situation, $target))
+            universe.ask_ref($self, $other, $situation, $target)
+
+#------------------------------------------
+# INFORMREF tell $other the value of $fact
+#------------------------------------------
+action_inform_ref
+    use action('inform_ref', $self, ($other, $fact), ($cond_pos, $cond_neg), $dele, $add) taking (execute, universe)
+    when
+
+        universe.agent($other)
+        check $other != $self
+
+        facts.value($situation, $target, $value)
+        check $target != $self
+
+        $fact = ($situation, $target)
+
+        $cond_pos = None
+        $cond_neg = None
+        $dele     = None
+        $add      = None
+
+    with
+        if execute:
+            print '-+- %s tells to %s that %s is %s' % ($self, $other, $fact, $value)
+            universe.inform_ref($self, $other, $situation, $target, $value)

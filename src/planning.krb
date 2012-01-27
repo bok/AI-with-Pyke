@@ -1,0 +1,94 @@
+#####################################################################
+# This program is free software. It comes without any warranty, to  #
+# the extent permitted by applicable law. You can redistribute it   #
+# and/or modify it under the terms of the Do What The Fuck You Want #
+# To Public License, Version 2, as published by Sam Hocevar. See    #
+# http://sam.zoy.org/wtfpl/COPYING for more details.                #
+#####################################################################
+
+
+#############################################################################
+#                           PLANNING                                        #
+#############################################################################
+
+plan_generate_1
+    use generate($i_state, $f_state, ($action,), 1, $chain)
+    when
+        transition($agent, $i_state, $f_state, $action)
+        # check if transition is valid
+        # -> check the order chain
+        order_chain($action, $chain, $_new_chain)
+
+plan_generate_m
+    use generate($i_state, $f_state, $plan, $m, $chain)
+    when
+        check $m > 1
+        transition($agent, $i_state, $state, $action)
+        # check if transition is valid
+        # -> check the order chain
+        order_chain($action, $chain, $new_chain)
+        $n = $m - 1
+        generate($state, $f_state, $old_plan, $n, $new_chain)
+        python
+            l = list($old_plan)
+            l.insert(0, ($action))
+        $plan = tuple(l)
+
+plan_transition
+    use transition($self, $i_state, $f_state, $action)
+    when
+        python from utils import remove, union, includes, not_any
+        actions.type($type)
+        universe.can_do($self, $type)
+        # generate an action
+        actions_plan.action($type, $self, $args, ($cond_pos, $cond_neg), $dele, $add)
+        check not_any($i_state, $cond_neg)
+
+# The following is for debug purposes... sometimes we need to know what the agent is actually trying.
+# If you set debug to True, don't forget to put it as an argument in the "includes" call.
+#        python
+#            print '>>>>> %s tries to %s with %s : [C](%s) [R](%s) [A](%s)' % ($self, $type, $args, cond, rem, add)
+#
+#        python
+#            if $type == 'inform_if' and $self == 'Bob':
+#                debug = True
+#            else:
+#                debug = False
+
+        # Set debug to True/False for debug mode
+        check includes($i_state, $cond_pos)
+        python state = remove($i_state, $dele)
+        python state2 = union(state, $add)
+        $f_state = state2
+        $action = ($type, $self, $args)
+#  Some more debug.
+#        python
+#           if $type == 'order':
+#               print 'sup bra, imma do %s' %($action,)
+
+order_chain
+    use order_chain(($type, $self, $args), $chain, $new_chain)
+    when
+        check $self in tuple($chain)
+        python
+            if $type == 'order':
+                l = list($chain)
+                l.append($args[0])
+            else:
+                l = $chain
+        $new_chain = l
+
+plan_no_op
+    use plan($self, $i_state, $goal, None, $_n)
+    when
+        python from utils import includes
+        check includes($i_state, $goal)
+
+plan
+    use plan($self, $i_state, $goal, $plan, $n)
+    when
+        python from utils import includes
+        $p in xrange(1, $n + 1)
+        #python print "=== PLAN A %s ACTIONS" % $p
+        generate($i_state, $f_state, $plan, $p, ($self,))
+        check includes($f_state, $goal, False)

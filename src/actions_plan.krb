@@ -1,0 +1,256 @@
+#####################################################################
+# This program is free software. It comes without any warranty, to  #
+# the extent permitted by applicable law. You can redistribute it   #
+# and/or modify it under the terms of the Do What The Fuck You Want #
+# To Public License, Version 2, as published by Sam Hocevar. See    #
+# http://sam.zoy.org/wtfpl/COPYING for more details.                #
+#####################################################################
+
+
+#############################################################################
+#                       ACTIONS   (planning)                                #
+#############################################################################
+
+#----------------------------
+# MOVE from pos $x to pos $y
+#----------------------------
+action_moveto
+    use action('move', $self, ($x, $y), ($cond_pos, $cond_neg), $dele, $add)
+    when
+
+        universe.location($x)
+        universe.location($y)
+
+        check $x != $y
+
+        $cond_pos = (('know', $self, ('location', $self, $x)),)
+        $cond_neg = None
+        $dele = (('know', $self, ('location', $self, $x)),)
+        $add = (('know', $self, ('location', $self, $y)),)
+
+#-----------------------------
+# TAKE $object at $loc_object
+#-----------------------------
+action_take
+    use action('take', $self, ($object, $loc_obj), ($cond_pos, $cond_neg), $dele, $add)
+    when
+
+        universe.location($loc_obj)
+        universe.object($object)
+
+        $cond_pos = (('know', $self, ('location', $self, $loc_obj)),
+                     ('know', $self, ('location', $object, $loc_obj)),
+                     ('know', $self, ('free', $self, True)),
+                    )
+        $cond_neg = None
+        $dele = (('know', $self, ('location', $object, $loc_obj)),
+                    )
+        $add = (('know', $self, ('location', $object, $self)),
+                ('know', $self, ('free', $self, False)),
+               )
+
+#-------------------------
+# PUT $object at $loc_obj
+#-------------------------
+action_put
+    use action('put', $self, ($object, $loc_obj), ($cond_pos, $cond_neg), $dele, $add)
+    when
+
+        universe.location($loc_obj)
+        universe.object($object)
+
+        $cond_pos = (('know', $self, ('location', $self, $loc_obj)),
+                    ('know', $self, ('location', $object, $self)),
+                    ('know', $self, ('free', $self, False)),
+                    )
+        $cond_neg = None
+        $dele = (('know', $self, ('location', $object, $self)),
+                    ('know', $self, ('free',  $self, False)),
+                    )
+        $add = (('know', $self, ('location', $object, $loc_obj)),
+                    ('know', $self, ('free', $self, True)),
+                    )
+
+#------------------------------
+# GIVE $object to agent $other
+#------------------------------
+action_give
+    use action('give', $self, ($object, $other), ($cond_pos, $cond_neg), $dele, $add)
+    when
+
+        universe.object($object)
+        universe.agent($other)
+        universe.location($x)
+        universe.location($y)
+
+        check $x == $y
+
+        $cond_pos = (('know', $self, ('free', $other, True)),
+                    ('know', $self, ('free', $self, False)),
+                    ('know', $self, ('location', $self, $x)),
+                    ('know', $self, ('location', $other, $y)),
+                    ('know', $self, ('location', $object, $self)),
+                    )
+
+        $cond_neg = None
+        $dele = (('know', $self, ('free', $other, True)),
+                    ('know', $self, ('free', $self, False)),
+                    ('know', $self, ('location', $object, $self)),
+                    )
+
+        $add = (('know', $self, ('free', $other, False)),
+                    ('know', $self, ('free', $self, True)),
+                    ('know', $self, ('location', $object, $other)),
+                    )
+
+#------------------------------------------------
+# ORDER an action of type $atype to agent $other
+#------------------------------------------------
+action_order
+    use action('order', $self, ($other, $atype, $args), ($cond_pos, $cond_neg), $dele, $add)
+    when
+        universe.agent($other)
+        actions.type($atype)
+
+        check $atype != 'order'
+        check $self != $other
+        universe.can_do($other, $atype)
+
+        action($atype, $other, $args, ($o_cond_pos, $o_cond_neg), $o_dele, $o_add)
+
+        python from utils import replace_in, union
+        python
+            new_cond_pos = replace_in($o_cond_pos, $other, $self)
+            new_cond_neg = replace_in($o_cond_neg, $other, $self)
+            new_dele     = replace_in($o_dele, $other, $self)
+            new_add      = replace_in($o_add, $other, $self)
+
+        $cond_pos = new_cond_pos
+        $cond_neg = new_cond_neg
+        $dele     = new_dele
+        $add      = new_add
+
+#-----------------------------------
+# PLACE $object in $box at $loc_box
+#-----------------------------------
+action_place_in_box
+    use action('place_in_box', $self, ($object, $box, $loc_box), ($cond_pos, $cond_neg), $dele, $add)
+    when
+
+        universe.object($box)
+        universe.box($box)
+        universe.location($loc_box)
+        universe.object($object)
+
+        $cond_pos = (('know', $self, ('location', $self, $loc_box)),
+                     ('know', $self, ('location', $object, $self)),
+                     ('know', $self, ('location', $box, $loc_box)),
+                     ('know', $self, ('free', $self, False)),
+                     ('know', $self, ('full', $box, False)),
+                    )
+        $cond_neg = None
+        $dele = (('know', $self, ('location', $object, $self)),
+                    ('know', $self, ('free',  $self, False)),
+                    )
+        $add = (('know', $self, ('location', $object, $box)),
+                    ('know', $self, ('free', $self, True)),
+                    )
+
+#-------------------------------------
+# FETCH $object from $box at $loc_box
+#-------------------------------------
+action_fetch_from_box
+    use action('fetch_from_box', $self, ($object, $box, $loc_box), ($cond_pos, $cond_neg), $dele, $add)
+    when
+
+        universe.location($loc_box)
+        universe.object($object)
+        universe.object($box)
+        universe.box($box)        
+
+        $cond_pos = (('know', $self, ('location', $self, $loc_box)),
+                     ('know', $self, ('location', $object, $box)),
+                     ('know', $self, ('free', $self, True)),
+                    )
+        $cond_neg = None
+        $dele = (('know', $self, ('location', $object, $box)),
+                    ('know', $self, ('free',  $self, True)),
+                    )
+        $add = (('know', $self, ('location', $object, $self)),
+                    ('know', $self, ('free', $self, False)),
+                    )
+
+#------------------------------------------------------------
+# ASKIF ask $other if they know $fact = ($situation, $target)
+#------------------------------------------------------------
+action_ask_if
+    use action('ask_if', $self, ($other, ($situation, $target)), ($cond_pos, $cond_neg), $dele, $add)
+    when
+
+        universe.agent($other)
+        check $other != $self
+
+        facts.fact($situation, $target)
+        check $target != $self
+
+        $cond_pos = None
+        $cond_neg = (('know', $self, ('dontknow', $other, ($situation, $target))),)
+        $dele  = None
+        $add  = (('know', $self, ('knowif', $other, ($situation, $target))),)
+
+#------------------------------------------------------------------
+# INFORMIF inform $other if they know $fact = ($situation, $target)
+#------------------------------------------------------------------
+action_inform_if
+    use action('inform_if', $self, ($other, ($situation, $target)), ($cond_pos, $cond_neg), $dele, $add)
+    when
+
+        universe.agent($other)
+        check $other != $self
+
+        facts.fact($situation, $target)
+        check $target != $other
+
+        $cond_pos = None
+        $cond_neg = None
+        $dele  = None
+        $add  = (('know', $self, ('know', $other, ('knowif', $self, ($situation, $target)))),)
+
+#-------------------------------------------
+# ASKREF ask $other about the value of $fact
+#-------------------------------------------
+action_ask_ref
+    use action('ask_ref', $self, ($other, $fact), ($cond_pos, $cond_neg), $dele, $add)
+    when
+
+        universe.agent($other)
+        check $other != $self
+
+        facts.value($situation, $target, $value)
+        check $target != $self
+        
+        $fact = ($situation, $target)
+    
+        $cond_pos = (('know', $self, ('knowif', $other, $fact)),)
+        $cond_neg = (('know', $self, ('dontknow', $other, $fact)),)
+        $dele  = None
+        $add  = (('know', $self, ($situation, $target, $value)),)
+
+#-------------------------------------
+# INFORMREF inform $other about the value of $fact
+#-------------------------------------
+action_inform_ref
+    use action('inform_ref', $self, ($other, $fact), ($cond_pos, $cond_neg), $dele, $add)
+    when
+
+        universe.agent($other)
+        check $other != $self
+
+        facts.value($situation, $target, $value)
+        
+        $fact = ($situation, $target)
+    
+        $cond_pos = (('know', $self, ($situation, $target, $value)),)
+        $cond_neg = None
+        $dele  = None
+        $add  = (('know', $self, ('know', $other, ($situation, $target, $value))),)
